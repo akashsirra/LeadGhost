@@ -31,6 +31,22 @@ function singleCheck(name: string, actionId: string, run: (output: unknown) => {
 function demoPlanner(task: Task): AgentPlan {
   const goal = task.goal.trim()
 
+  if (/\b(audit|inspect|analy[sz]e)\b.*\b(repo|repository|workspace|project)\b/i.test(goal)) {
+    const actions: PlannedAction[] = [
+      { id: 'a1', tool: 'list_files', input: { path: '.' }, reason: 'Inspect the workspace structure before drawing conclusions.' },
+      { id: 'a2', tool: 'git_status', input: undefined, reason: 'Capture repository state as independent evidence.' },
+      { id: 'a3', tool: 'read_file', input: { path: 'package.json' }, reason: 'Inspect the project manifest to identify runtime and available checks.' },
+    ]
+    return {
+      actions,
+      checks: [
+        ...singleCheck('workspace listing returned an array', 'a1', output => ({ passed: Array.isArray(output), detail: `Observed ${Array.isArray(output) ? output.length : 0} paths.` })),
+        ...singleCheck('git status returned text', 'a2', output => ({ passed: typeof output === 'string', detail: `Observed ${typeof output === 'string' ? output.length : 0} characters of repository status.` })),
+        ...singleCheck('project manifest returned text', 'a3', output => ({ passed: typeof output === 'string' && output.trim().length > 0, detail: `Observed ${typeof output === 'string' ? output.length : 0} characters of package metadata.` })),
+      ],
+    }
+  }
+
   if (/\b(list|show|inspect)\b.*\b(files|folders|directory|repo|repository)\b/i.test(goal)) {
     const relativePath = goal.match(/(?:in|under|at)\s+([\w./-]+)\s*$/i)?.[1] ?? '.'
     const action = { id: 'a1', tool: 'list_files', input: { path: relativePath }, reason: 'The goal asks AEGIS to inspect workspace structure.' }

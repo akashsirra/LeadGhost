@@ -1,46 +1,65 @@
-# LeadGhost 👻
+# AEGIS
 
-**Find websites that are losing customers. Show them what they could have.**
+**Autonomous Engineering & Intelligence System**
 
-LeadGhost is a monetization-first prospecting platform for web freelancers and agencies. It turns a business URL into an evidence-backed website audit, an original redesign concept, a shareable sales page, and a qualified redesign lead.
+AEGIS is an agent-engineering platform inspired by Lauren Tan's approach to trustworthy autonomous development: specialized agents, reusable skills, machine-verifiable evidence, evaluations, and hard constraints.
 
-## Core funnel
+## North-star
 
-`Prospect → Audit → Ghost Preview → Share → Lead Capture → Website Sale → Recurring Care`
+Give AEGIS an engineering goal and progressively reduce the amount of human supervision required to safely complete it.
 
-## MVP
+## Core loop
 
-- Website URL intake and validation
-- Evidence-backed heuristic audit
-- Conversion / UX / mobile / trust / SEO observations
-- Original redesign preview
-- Public shareable audit and preview pages
-- Prospect CRM
-- Lead capture
-- Usage limits and upgrade prompts
-- Pricing / monetization surfaces
-- Modular AI and crawler integration points
-- Mobile-first UI
+`Goal → Plan → Execute → Observe → Verify → Evidence → Review → Ship`
 
-## Monetization model
+A model's claim is never proof of success. Verification must produce evidence.
 
-- Free: 3 audits/month
-- Solo: ₹999/month
-- Agency: ₹2,999/month
-- Website builds: from ₹9,999
+## Architecture
 
-Revenue is not guaranteed; these mechanisms are designed to make the path to a first paid client explicit.
+- **Orchestrator** — decomposes goals and coordinates agents.
+- **Agent runtime** — executes bounded tasks with explicit permissions.
+- **Skills** — reusable procedures and domain knowledge.
+- **Tools** — shell, filesystem, Git, browser/runtime tools, and later project-specific tools.
+- **Verifier** — checks claims against observable evidence.
+- **Evaluator** — regression tests agent behavior and skills.
+- **Evidence ledger** — records actions, observations, tests, and decisions.
+- **Feature map** — machine-readable map of capabilities and project navigation.
+- **Policies** — hard boundaries for tools, files, commands, and approval levels.
 
-## Build philosophy
+## Trust ladder
 
-LeadGhost must never fabricate measured website metrics, testimonials, customer counts, or audit evidence. Observations should be tied to extracted page facts where possible; estimates must be clearly labeled as heuristics.
+1. One local agent.
+2. Deterministic verification.
+3. Reusable skills.
+4. Agent evaluations.
+5. Hard constraints and CI gates.
+6. Specialized agent team.
+7. Cloud execution.
+8. Autonomous PR/release workflows.
 
-## Roadmap
+## First milestone: trustworthy single-agent loop
 
-1. Working web MVP
-2. Connect real AI provider
-3. Add robust crawling / screenshots
-4. Add Termux prospecting worker
-5. Add payments
-6. Deploy and acquire first prospects
-7. Measure conversion and iterate
+AEGIS v0.1 is successful only when it can:
+
+1. Accept a bounded engineering task.
+2. Produce a plan.
+3. Execute permitted actions.
+4. record observations and evidence.
+5. Run deterministic verification.
+6. Distinguish **PASS**, **FAIL**, and **UNKNOWN**.
+7. Refuse to claim success without sufficient evidence.
+8. Persist the run so another agent or human can audit it.
+
+## Non-negotiable engineering rules
+
+- Never treat model output as evidence.
+- Never fabricate test results, metrics, files, or tool output.
+- Unknown is not pass.
+- Verification must be reproducible where practical.
+- Agents get least-privilege tools.
+- Recurring human review comments should become automated checks when possible.
+- Every important capability gets an evaluation before it is trusted.
+
+## Repository note
+
+This repository was previously used for LeadGhost. It is now being rebuilt as AEGIS; the existing code is legacy and will be replaced incrementally behind verified milestones.

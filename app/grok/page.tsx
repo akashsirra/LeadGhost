@@ -11,7 +11,7 @@ const starterPrompts = [
 
 type Message = { role: 'user' | 'assistant'; content: string }
 
-export default function GrokPage() {
+export default function BrokPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -51,7 +51,7 @@ export default function GrokPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-white text-black">✦</span>
-            <div><div className="font-semibold tracking-tight">GHOST</div><div className="text-[10px] uppercase tracking-[.2em] text-[#777782]">Grok bot</div></div>
+            <div><div className="font-semibold tracking-tight">BROK</div><div className="text-[10px] uppercase tracking-[.2em] text-[#777782]">Grok-powered AI</div></div>
           </Link>
           <div className="flex items-center gap-2 text-xs text-[#85858f]"><span className="h-2 w-2 rounded-full bg-[#b7ff3c]"/> Live web search</div>
         </div>
@@ -63,7 +63,7 @@ export default function GrokPage() {
             <div className="mb-6 text-center">
               <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-white to-[#777] text-3xl text-black shadow-2xl">✦</div>
               <h1 className="text-4xl font-semibold tracking-[-.04em] md:text-5xl">What are we figuring out?</h1>
-              <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-[#85858f]">A fast, opinionated AI assistant with live web search. Ask anything, research something, or give it a goal.</p>
+              <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-[#85858f]">BROK is a fast, opinionated AI assistant with live web search. Ask anything, research something, or give it a goal.</p>
             </div>
             <div className="grid gap-2 sm:grid-cols-3">
               {starterPrompts.map((prompt) => <button key={prompt} onClick={() => void sendMessage(prompt)} className="rounded-2xl border border-[#24242c] bg-[#0d0d11] p-4 text-left text-sm text-[#b5b5be] transition hover:border-[#44444e] hover:bg-[#111116]">{prompt}</button>)}
@@ -80,10 +80,10 @@ export default function GrokPage() {
 
         <form onSubmit={submit} className="sticky bottom-3 rounded-3xl border border-[#292930] bg-[#101014] p-2 shadow-2xl">
           <div className="flex items-end gap-2">
-            <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendMessage() } }} placeholder="Ask anything…" rows={1} className="max-h-40 min-h-12 flex-1 resize-none bg-transparent px-3 py-3 text-sm outline-none placeholder:text-[#5f5f69]" />
+            <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendMessage() } }} placeholder="Ask BROK anything…" rows={1} className="max-h-40 min-h-12 flex-1 resize-none bg-transparent px-3 py-3 text-sm outline-none placeholder:text-[#5f5f69]" />
             <button type="submit" disabled={!input.trim() || loading} className="h-12 w-12 rounded-2xl bg-white text-xl text-black transition hover:bg-[#ddd] disabled:cursor-not-allowed disabled:opacity-30">↑</button>
           </div>
-          <div className="px-3 pb-1 pt-1 text-[10px] text-[#55555f]">GHOST uses xAI server-side. Your API key never reaches the browser.</div>
+          <div className="px-3 pb-1 pt-1 text-[10px] text-[#55555f]">BROK uses xAI server-side. Your API key never reaches the browser.</div>
         </form>
       </section>
     </main>

@@ -40,6 +40,7 @@ function toolDefinitions() {
     { type: 'function', name: 'calculate', description: 'Evaluate basic arithmetic without dynamic code execution.', parameters: { type: 'object', properties: { expression: { type: 'string' } }, required: ['expression'], additionalProperties: false } },
     { type: 'function', name: 'timestamp', description: 'Return the runtime clock as an ISO timestamp.', parameters: { type: 'object', properties: {}, additionalProperties: false } },
     { type: 'function', name: 'echo', description: 'Return user-provided text unchanged.', parameters: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'], additionalProperties: false } },
+    { type: 'function', name: 'run_check', description: 'Run one allowlisted objective verification check: test, typecheck, or build. Use this when the task needs executable proof.', parameters: { type: 'object', properties: { name: { type: 'string', enum: ['test', 'typecheck', 'build'] } }, required: ['name'], additionalProperties: false } },
   ]
 }
 
@@ -77,13 +78,15 @@ async function callModel(input: unknown[], system: string) {
 export async function runModelAgent(task: Task, workspaceRoot?: string): Promise<AgentRun> {
   const events: AgentEvent[] = []
   const evidence: Evidence[] = []
+  const objectiveChecks: Array<{ name: string; passed: boolean; detail: string }> = []
   const system = [
     'You are the planning intelligence inside AEGIS, an evidence-first engineering agent.',
-    'AEGIS is the authority: you may propose read-only tool calls, but you never have direct filesystem, git, network, write, release, or secret access.',
+    'AEGIS is the authority: you may propose bounded tools, but you never have direct filesystem, git, network, write, release, or secret access.',
     'Inspect before concluding. Prefer multiple independent observations when useful.',
     'Never claim that a task succeeded merely because you reasoned that it should. Only actual tool observations are evidence.',
     'Do not access secrets or sensitive files. Do not invent tool results.',
-    'For this first model mode, stay read-only. If the user asks for changes, explain what should be changed but do not modify anything.',
+    'For this model mode, source-changing actions are unavailable. If the user asks for changes, explain what should be changed but do not modify anything.',
+    'When the task requires proof that the project passes, use run_check with test, typecheck, or build. A check result is objective evidence; your summary is not.',
     `The user goal is: ${task.goal}`,
     task.constraints.length ? `Constraints: ${task.constraints.join('; ')}` : 'No additional constraints were supplied.',
   ].join('\n')
@@ -116,28 +119,44 @@ export async function runModelAgent(task: Task, workspaceRoot?: string): Promise
         continue
       }
 
-      events.push({ type: 'plan', action: { id: actionId, tool: toolName, input: toolInput, reason: 'Model proposed this read-only observation.' } })
+      events.push({ type: 'plan', action: { id: actionId, tool: toolName, input: toolInput, reason: toolName === 'run_check' ? 'Model requested executable objective verification.' : 'Model proposed this bounded observation.' } })
       try {
         const result: ToolResult = tool.execute(toolInput, { goal: task.goal, workspaceRoot })
         evidence.push(result.evidence)
         events.push({ type: 'execute', actionId, tool: toolName, output: result.output })
+        if (toolName === 'run_check' && result.output && typeof result.output === 'object') {
+          const check = result.output as { name?: string; passed?: boolean }
+          if (typeof check.name === 'string' && typeof check.passed === 'boolean') {
+            objectiveChecks.push({ name: `objective ${check.name}`, passed: check.passed, detail: check.passed ? `${check.name} completed successfully.` : `${check.name} failed; see test evidence.` })
+          }
+        }
         input.push({ type: 'function_call_output', call_id: actionId, output: JSON.stringify(result.output) })
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Tool execution failed.'
         const item = createEvidence('observation', message, `tool:${toolName}:error`)
         evidence.push(item)
         events.push({ type: 'execute', actionId, tool: toolName, output: { error: message } })
+        if (toolName === 'run_check') objectiveChecks.push({ name: 'objective verification', passed: false, detail: message })
         input.push({ type: 'function_call_output', call_id: actionId, output: JSON.stringify({ error: message }) })
       }
     }
   }
 
   if (!summary) summary = 'The model reached the AEGIS step limit before producing a final summary.'
-  const result: VerificationResult = {
-    status: evidence.length > 0 ? 'UNKNOWN' : 'UNKNOWN',
-    checks: [{ name: 'model conclusion', passed: false, detail: 'Model output is not proof of task success; an objective verifier is required.' }],
-    evidence,
-  }
+
+  const result: VerificationResult = objectiveChecks.length > 0
+    ? {
+        status: objectiveChecks.every(check => check.passed) ? 'PASS' : 'FAIL',
+        checks: objectiveChecks,
+        evidence: evidence.filter(item => item.kind === 'test'),
+      }
+    : {
+        status: 'UNKNOWN',
+        checks: [{ name: 'objective verification', passed: false, detail: 'No executable verification check was run; model output is not proof of success.' }],
+        evidence: [],
+      }
+
+  evidence.push(...result.evidence.filter(item => !evidence.includes(item)))
   events.push({ type: 'verify', result })
   return { mode: 'model', model: MODEL, summary, events, evidence, result }
 }

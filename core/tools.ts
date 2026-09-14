@@ -5,6 +5,8 @@ export interface ToolContext { goal: string }
 export interface ToolResult<T = unknown> { output: T; evidence: Evidence }
 export interface Tool<I = unknown, O = unknown> { name: string; description: string; execute: (input: I, context: ToolContext) => ToolResult<O> }
 
+type AnyTool = Tool<any, any>
+
 const echo: Tool<{ text: string }, string> = {
   name: 'echo',
   description: 'Return user-provided text without changing it.',
@@ -58,5 +60,5 @@ const timestamp: Tool<undefined, string> = {
   execute: () => { const value = new Date().toISOString(); return { output: value, evidence: createEvidence('observation', `Runtime clock: ${value}.`, 'tool:timestamp') } },
 }
 
-export const defaultTools: Tool[] = [echo, calculate, timestamp]
-export function getTool(name: string): Tool | undefined { return defaultTools.find(tool => tool.name === name) }
+export const defaultTools: AnyTool[] = [echo, calculate, timestamp]
+export function getTool(name: string): AnyTool | undefined { return defaultTools.find(tool => tool.name === name) }

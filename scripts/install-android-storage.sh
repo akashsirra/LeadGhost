@@ -44,13 +44,27 @@ cat > "$PKG_DIR/MainActivity.java" <<'JAVA'
 package com.akashsirra.brok;
 
 import android.os.Bundle;
+import android.webkit.WebView;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    private boolean storageBridgeInstalled = false;
+
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        getBridge().getWebView().addJavascriptInterface(new StorageBridge(this), "BrokStorage");
+    public void onResume() {
+        super.onResume();
+        if (storageBridgeInstalled) return;
+
+        WebView webView = getBridge().getWebView();
+        if (webView == null) return;
+
+        webView.addJavascriptInterface(new StorageBridge(this), "BrokStorage");
+        storageBridgeInstalled = true;
+
+        // Android only exposes a newly-added JavaScript interface after the next
+        // page load. Reload once so native-storage.js sees BrokStorage before
+        // BROK's application code executes.
+        webView.post(webView::reload);
     }
 }
 JAVA

@@ -80,8 +80,8 @@ export default function GrokPage() {
 
         <form onSubmit={submit} className="sticky bottom-3 rounded-3xl border border-[#292930] bg-[#101014] p-2 shadow-2xl">
           <div className="flex items-end gap-2">
-            <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(e) } }} placeholder="Ask anything…" rows={1} className="max-h-40 min-h-12 flex-1 resize-none bg-transparent px-3 py-3 text-sm outline-none placeholder:text-[#5f5f69]" />
-            <button disabled={!input.trim() || loading} className="h-12 w-12 rounded-2xl bg-white text-xl text-black transition hover:bg-[#ddd] disabled:cursor-not-allowed disabled:opacity-30">↑</button>
+            <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendMessage() } }} placeholder="Ask anything…" rows={1} className="max-h-40 min-h-12 flex-1 resize-none bg-transparent px-3 py-3 text-sm outline-none placeholder:text-[#5f5f69]" />
+            <button type="submit" disabled={!input.trim() || loading} className="h-12 w-12 rounded-2xl bg-white text-xl text-black transition hover:bg-[#ddd] disabled:cursor-not-allowed disabled:opacity-30">↑</button>
           </div>
           <div className="px-3 pb-1 pt-1 text-[10px] text-[#55555f]">GHOST uses xAI server-side. Your API key never reaches the browser.</div>
         </form>

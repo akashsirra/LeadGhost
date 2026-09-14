@@ -2,9 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'LeadGhost — Turn bad websites into clients',
-  description: 'Audit weak business websites, generate redesign previews, and turn prospects into web projects.',
-  openGraph: { title: 'LeadGhost', description: 'Find websites that are losing customers. Show them what they could have.', type: 'website' }
+  title: 'AEGIS — Autonomous Engineering & Intelligence System',
+  description: 'A verification-first agent engineering system for trustworthy autonomous development.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -2,12 +2,29 @@ import { NextRequest, NextResponse } from 'next/server'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 
-const MODEL = process.env.XAI_MODEL || 'grok-4.6'
+const MODEL = process.env.GROQ_MODEL || 'groq/compound'
+
+const SYSTEM_PROMPT = `You are BROK, a fast, practical agent inside LeadGhost.
+
+Your job is to help the user get things done, not merely chat. For questions that benefit from current information, research the web using your built-in tools. For calculations or data work, use code execution when useful. Visit relevant public websites when primary-source information matters.
+
+Be decisive and concise. Prefer verified facts over guesses. When you use web research, preserve the citations provided by the platform. If the user asks for a task, reason about the best path, do the available work, verify important results, and clearly state what you completed and what still requires the user.`
+
+function getApiKeys() {
+  return [
+    process.env.GROQ_API_KEY_1,
+    process.env.GROQ_API_KEY_2,
+    process.env.GROQ_API_KEY,
+  ].filter((key): key is string => Boolean(key))
+}
 
 export async function POST(request: NextRequest) {
-  const apiKey = process.env.XAI_API_KEY
-  if (!apiKey) {
-    return NextResponse.json({ error: 'XAI_API_KEY is not configured on the server.' }, { status: 503 })
+  const apiKeys = getApiKeys()
+  if (!apiKeys.length) {
+    return NextResponse.json(
+      { error: 'No Groq API key is configured on the server.' },
+      { status: 503 },
+    )
   }
 
   const body = await request.json().catch(() => null)
@@ -21,37 +38,54 @@ export async function POST(request: NextRequest) {
     .slice(-30)
     .map((m: Message) => ({ role: m.role, content: m.content }))
 
-  const upstream = await fetch('https://api.x.ai/v1/responses', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      input,
-      tools: [{ type: 'web_search' }],
-      temperature: 0.7,
-    }),
-  })
+  let lastData: any = {}
+  let lastStatus = 500
+  let lastError = 'Groq request failed.'
 
-  const data = await upstream.json().catch(() => ({}))
-  if (!upstream.ok) {
-    return NextResponse.json(
-      { error: data?.error?.message || data?.error || `xAI request failed (${upstream.status})` },
-      { status: upstream.status },
-    )
+  for (const apiKey of apiKeys) {
+    const upstream = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          ...input,
+        ],
+        citation_options: 'enabled',
+      }),
+    })
+
+    const data = await upstream.json().catch(() => ({}))
+    lastData = data
+    lastStatus = upstream.status
+
+    if (upstream.ok) {
+      const message = data?.choices?.[0]?.message
+      const text = typeof message?.content === 'string' ? message.content : ''
+      const executedTools = Array.isArray(message?.executed_tools)
+        ? message.executed_tools.map((tool: any) => tool?.type || 'tool').filter(Boolean)
+        : []
+
+      return NextResponse.json({
+        message: text || 'I got a response, but could not extract its text.',
+        model: MODEL,
+        responseId: data.id || null,
+        toolsUsed: [...new Set(executedTools)],
+      })
+    }
+
+    lastError = data?.error?.message || data?.error || `Groq request failed (${upstream.status})`
+
+    // A second key is useful as a safety valve for rate limits/transient failures.
+    if (upstream.status !== 429 && upstream.status < 500) break
   }
 
-  const text = typeof data.output_text === 'string'
-    ? data.output_text
-    : Array.isArray(data.output)
-      ? data.output.flatMap((item: any) => Array.isArray(item?.content) ? item.content : []).map((part: any) => part?.text || '').filter(Boolean).join('\n')
-      : ''
-
-  return NextResponse.json({
-    message: text || 'I got a response, but could not extract its text.',
-    model: MODEL,
-    responseId: data.id || null,
-  })
+  return NextResponse.json(
+    { error: lastError, model: MODEL },
+    { status: lastStatus || 500 },
+  )
 }

@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString(),
     }
 
-    const run = runTask(task)
+    const run = runTask(task, undefined, process.cwd())
     return NextResponse.json({ ok: true, ...run })
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'Task failed.' }, { status: 422 })

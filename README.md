@@ -2,29 +2,39 @@
 
 **Autonomous Engineering & Intelligence System**
 
-AEGIS is an agent-engineering platform inspired by Lauren Tan's approach to trustworthy autonomous development: specialized agents, reusable skills, machine-verifiable evidence, evaluations, and hard constraints.
+AEGIS is a verification-first agent-engineering system: agents propose work, bounded tools execute it, and deterministic verification decides what can be trusted.
 
-## North-star
+## Working now — v0.2
 
-Give AEGIS an engineering goal and progressively reduce the amount of human supervision required to safely complete it.
+The local runtime is live at `/app` and follows:
 
-## Core loop
+`Goal → Plan → Tool → Observe → Verify → Evidence → Result`
 
-`Goal → Plan → Execute → Observe → Verify → Evidence → Review → Ship`
+It currently includes a deterministic planner and three least-privilege tools:
 
-A model's claim is never proof of success. Verification must produce evidence.
+- `echo` — read-only text preservation.
+- `calculate` — basic arithmetic with a small parser and no dynamic code execution.
+- `timestamp` — runtime clock observation.
+
+Every tool execution produces provenance-bearing evidence. Every verification check must also produce evidence. Missing evidence yields **UNKNOWN**, never **PASS**.
+
+The planner is deliberately deterministic at this stage. A future model can be connected behind the `Planner` interface without giving the model authority over the trust boundary.
 
 ## Architecture
 
-- **Orchestrator** — decomposes goals and coordinates agents.
-- **Agent runtime** — executes bounded tasks with explicit permissions.
-- **Skills** — reusable procedures and domain knowledge.
-- **Tools** — shell, filesystem, Git, browser/runtime tools, and later project-specific tools.
-- **Verifier** — checks claims against observable evidence.
-- **Evaluator** — regression tests agent behavior and skills.
-- **Evidence ledger** — records actions, observations, tests, and decisions.
-- **Feature map** — machine-readable map of capabilities and project navigation.
-- **Policies** — hard boundaries for tools, files, commands, and approval levels.
+- **Orchestrator / runtime** — turns a bounded task into a plan and executes only registered tools.
+- **Planner** — currently deterministic; later accepts a model behind a stable interface.
+- **Tools** — explicit, least-privilege capabilities.
+- **Verifier** — checks observable outputs and owns PASS/FAIL/UNKNOWN.
+- **Evidence ledger** — records tool and verification provenance.
+- **Evaluator** — regression tests runtime behavior.
+- **Policies** — hard boundaries for future filesystem, Git, browser, and cloud tools.
+
+## Trust boundary
+
+**Model proposes → runtime permits → tools observe → verifier decides.**
+
+No model response can directly turn an unverified run into a success.
 
 ## Trust ladder
 
@@ -37,29 +47,14 @@ A model's claim is never proof of success. Verification must produce evidence.
 7. Cloud execution.
 8. Autonomous PR/release workflows.
 
-## First milestone: trustworthy single-agent loop
+We are currently at step 2 and building upward only when the previous step is measurable.
 
-AEGIS v0.1 is successful only when it can:
-
-1. Accept a bounded engineering task.
-2. Produce a plan.
-3. Execute permitted actions.
-4. record observations and evidence.
-5. Run deterministic verification.
-6. Distinguish **PASS**, **FAIL**, and **UNKNOWN**.
-7. Refuse to claim success without sufficient evidence.
-8. Persist the run so another agent or human can audit it.
-
-## Non-negotiable engineering rules
+## Engineering rules
 
 - Never treat model output as evidence.
 - Never fabricate test results, metrics, files, or tool output.
 - Unknown is not pass.
-- Verification must be reproducible where practical.
-- Agents get least-privilege tools.
+- Verification should be reproducible.
+- Agents receive least-privilege tools.
+- Destructive/external side effects require a future approval layer.
 - Recurring human review comments should become automated checks when possible.
-- Every important capability gets an evaluation before it is trusted.
-
-## Repository note
-
-This repository was previously used for LeadGhost. It is now being rebuilt as AEGIS; the existing code is legacy and will be replaced incrementally behind verified milestones.

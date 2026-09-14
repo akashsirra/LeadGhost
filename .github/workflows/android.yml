@@ -25,6 +25,9 @@ jobs:
       - name: Add Android platform
         run: npx cap add android
 
+      - name: Install BROK native Android storage bridge
+        run: bash scripts/install-android-storage.sh
+
       - name: Sync Capacitor
         run: npx cap sync android
 

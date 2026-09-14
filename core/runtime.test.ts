@@ -15,4 +15,13 @@ describe('AEGIS runtime', () => {
     expect(run.plan.actions[0]?.tool).toBe('echo')
     expect(run.result.status).toBe('PASS')
   })
+
+  it('performs a multi-step repository inspection before returning a verdict', () => {
+    const run = runTask({ id: 't3', goal: 'audit this repository', constraints: [], createdAt: new Date().toISOString() }, undefined, process.cwd())
+    expect(run.plan.actions.map(action => action.tool)).toEqual(['list_files', 'git_status', 'read_file'])
+    expect(run.events.filter(event => event.type === 'execute')).toHaveLength(3)
+    expect(run.result.status).toBe('PASS')
+    expect(run.result.checks).toHaveLength(3)
+    expect(run.result.evidence.length).toBeGreaterThanOrEqual(3)
+  })
 })

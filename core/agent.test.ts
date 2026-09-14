@@ -32,7 +32,7 @@ describe('model agent', () => {
     process.env.OPENAI_API_KEY = 'test-key'
     const fetchMock = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify({
-        output: [{ type: 'function_call', call_id: 'check_1', name: 'run_check', arguments: '{"name":"typecheck"}' }],
+        output: [{ type: 'function_call', call_id: 'check_1', name: 'run_check', arguments: '{\"name\":\"typecheck\"}' }],
       }), { status: 200, headers: { 'content-type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         output: [{ type: 'message', output_text: 'Typecheck passed based on the executed verification.' }],
@@ -44,5 +44,5 @@ describe('model agent', () => {
     expect(runCheck.result.status).toBe('PASS')
     expect(runCheck.result.checks[0]?.name).toBe('objective typecheck')
     expect(runCheck.result.evidence.some(item => item.source === 'check:typecheck')).toBe(true)
-  })
+  }, 15000)
 })

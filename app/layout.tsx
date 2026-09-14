@@ -1,11 +1,20 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import PwaRegister from './pwa-register'
 
 export const metadata: Metadata = {
-  title: 'AEGIS — Autonomous Engineering & Intelligence System',
-  description: 'A verification-first agent engineering system for trustworthy autonomous development.',
+  title: 'BROK — AI Agent',
+  description: 'A fast, practical AI agent powered by Groq.',
+  applicationName: 'BROK',
+  appleWebApp: { capable: true, title: 'BROK', statusBarStyle: 'black-translucent' },
+  icons: { icon: '/icon.svg', apple: '/icon.svg' },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#07070a',
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html lang="en"><body>{children}</body></html>
+  return <html lang="en"><body><PwaRegister />{children}</body></html>
 }

@@ -24,42 +24,57 @@ export interface Planner {
   plan: (task: Task) => AgentPlan
 }
 
+function singleCheck(name: string, actionId: string, run: (output: unknown) => { passed: boolean; detail: string; evidence?: Evidence[] }) {
+  return [{ name, actionId, run }]
+}
+
 function demoPlanner(task: Task): AgentPlan {
   const goal = task.goal.trim()
+
+  if (/\b(list|show|inspect)\b.*\b(files|folders|directory|repo|repository)\b/i.test(goal)) {
+    const relativePath = goal.match(/(?:in|under|at)\s+([\w./-]+)\s*$/i)?.[1] ?? '.'
+    const action = { id: 'a1', tool: 'list_files', input: { path: relativePath }, reason: 'The goal asks AEGIS to inspect workspace structure.' }
+    return { actions: [action], checks: singleCheck('filesystem listing returned an array', 'a1', output => ({ passed: Array.isArray(output), detail: `Observed ${Array.isArray(output) ? output.length : 0} paths.` })) }
+  }
+
+  if (/\b(read|open|inspect)\b.*\b(file|source|code)\b/i.test(goal)) {
+    const relativePath = goal.match(/(?:file|source|code)\s+([\w./-]+)\s*$/i)?.[1] ?? goal.match(/(?:read|open|inspect)\s+([\w./-]+)\s*$/i)?.[1] ?? ''
+    const action = { id: 'a1', tool: 'read_file', input: { path: relativePath }, reason: 'The goal asks AEGIS to inspect a specific workspace file.' }
+    return { actions: [action], checks: singleCheck('file read returned text', 'a1', output => ({ passed: typeof output === 'string', detail: `Observed ${typeof output === 'string' ? `${output.length} characters` : 'non-text output'}.` })) }
+  }
+
+  if (/\bgit\s+status\b|\bstatus\b.*\brepo(sitory)?\b/i.test(goal)) {
+    const action = { id: 'a1', tool: 'git_status', input: undefined, reason: 'The goal asks for repository status.' }
+    return { actions: [action], checks: singleCheck('git status returned text', 'a1', output => ({ passed: typeof output === 'string', detail: `Observed ${String(output).length} characters of status output.` })) }
+  }
+
+  if (/\bgit\s+diff\b|\bshow\b.*\bchanges\b/i.test(goal)) {
+    const relativePath = goal.match(/(?:for|in)\s+([\w./-]+)\s*$/i)?.[1]
+    const action = { id: 'a1', tool: 'git_diff', input: relativePath ? { path: relativePath } : {}, reason: 'The goal asks AEGIS to inspect uncommitted changes.' }
+    return { actions: [action], checks: singleCheck('git diff returned text', 'a1', output => ({ passed: typeof output === 'string', detail: `Observed ${String(output).length} characters of diff output.` })) }
+  }
+
+  if (/\bgit\s+(log|history)\b|\bcommit history\b/i.test(goal)) {
+    const action = { id: 'a1', tool: 'git_log', input: { limit: 10 }, reason: 'The goal asks for recent repository history.' }
+    return { actions: [action], checks: singleCheck('git history returned text', 'a1', output => ({ passed: typeof output === 'string', detail: `Observed ${String(output).length} characters of history output.` })) }
+  }
+
   if (/calculate|compute|what is/i.test(goal)) {
     const expression = goal.match(/(?:calculate|compute|what is)\s+(.+)$/i)?.[1]?.replace(/[?]/g, '').trim() ?? ''
     const action = { id: 'a1', tool: 'calculate', input: { expression }, reason: 'The goal asks for an arithmetic result.' }
-    return {
-      actions: [action],
-      checks: [{
-        name: 'calculator produced a finite number', actionId: 'a1',
-        run: output => ({ passed: typeof output === 'number' && Number.isFinite(output as number), detail: `Observed output: ${String(output)}.` }),
-      }],
-    }
+    return { actions: [action], checks: singleCheck('calculator produced a finite number', 'a1', output => ({ passed: typeof output === 'number' && Number.isFinite(output as number), detail: `Observed output: ${String(output)}.` })) }
   }
 
   if (/time|timestamp|date/i.test(goal)) {
     const action = { id: 'a1', tool: 'timestamp', input: undefined, reason: 'The goal asks for the runtime time.' }
-    return {
-      actions: [action],
-      checks: [{
-        name: 'timestamp is ISO formatted', actionId: 'a1',
-        run: output => ({ passed: typeof output === 'string' && !Number.isNaN(Date.parse(output)), detail: `Observed output: ${String(output)}.` }),
-      }],
-    }
+    return { actions: [action], checks: singleCheck('timestamp is ISO formatted', 'a1', output => ({ passed: typeof output === 'string' && !Number.isNaN(Date.parse(output)), detail: `Observed output: ${String(output)}.` })) }
   }
 
   const action = { id: 'a1', tool: 'echo', input: { text: goal }, reason: 'No specialized tool matched, so AEGIS uses the read-only echo tool.' }
-  return {
-    actions: [action],
-    checks: [{
-      name: 'echo preserved the goal', actionId: 'a1',
-      run: output => ({ passed: output === goal, detail: output === goal ? 'Output exactly matched the requested goal.' : 'Output differed from the requested goal.' }),
-    }],
-  }
+  return { actions: [action], checks: singleCheck('echo preserved the goal', 'a1', output => ({ passed: output === goal, detail: output === goal ? 'Output exactly matched the requested goal.' : 'Output differed from the requested goal.' })) }
 }
 
-export function runTask(task: Task, planner: Planner = { plan: demoPlanner }): { task: Task; plan: AgentPlan; events: RunEvent[]; result: VerificationResult; evidence: Evidence[] } {
+export function runTask(task: Task, planner: Planner = { plan: demoPlanner }, workspaceRoot?: string): { task: Task; plan: AgentPlan; events: RunEvent[]; result: VerificationResult; evidence: Evidence[] } {
   if (!task.goal.trim()) throw new Error('Task goal cannot be empty.')
 
   const plan = planner.plan(task)
@@ -70,7 +85,7 @@ export function runTask(task: Task, planner: Planner = { plan: demoPlanner }): {
   for (const action of plan.actions) {
     const tool = getTool(action.tool)
     if (!tool) throw new Error(`Tool not permitted: ${action.tool}`)
-    const result: ToolResult = tool.execute(action.input, { goal: task.goal })
+    const result: ToolResult = tool.execute(action.input, { goal: task.goal, workspaceRoot })
     outputs.set(action.id, result.output)
     evidence.push(result.evidence)
     events.push({ type: 'execute', actionId: action.id, tool: action.tool, output: result.output })

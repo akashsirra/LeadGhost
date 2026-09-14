@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { createEvidence } from './evidence'
+import { runCheck, type CheckName } from './checks'
 import type { Evidence } from './types'
 
 export interface ToolContext { goal: string; workspaceRoot?: string }
@@ -92,7 +93,7 @@ const timestamp: Tool<undefined, string> = {
 
 const listFiles: Tool<{ path?: string }, string[]> = {
   name: 'list_files',
-  description: 'List workspace files recursively within a bounded read-only scope.',
+  description: 'List workspace files recursively within a bounded read-only scope, excluding the Git metadata directory.',
   execute: ({ path: relativePath = '.' }, context) => {
     const start = resolveWorkspacePath(context, relativePath)
     const root = workspace(context)
@@ -100,6 +101,7 @@ const listFiles: Tool<{ path?: string }, string[]> = {
     const walk = (directory: string, depth: number) => {
       if (depth > MAX_DEPTH || results.length >= MAX_LIST_ENTRIES) return
       for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+        if (entry.name === '.git') continue
         const absolute = path.join(directory, entry.name)
         const rel = path.relative(root, absolute) || entry.name
         if (entry.isSymbolicLink() || isSensitive(rel)) continue
@@ -155,5 +157,15 @@ const gitLog: Tool<{ limit?: number }, string> = {
   },
 }
 
-export const defaultTools: AnyTool[] = [echo, calculate, timestamp, listFiles, readFile, gitStatus, gitDiff, gitLog]
+const runVerification: Tool<{ name: CheckName }, { name: CheckName; passed: boolean; output: string }> = {
+  name: 'run_check',
+  description: 'Run one allowlisted objective verification check: test, typecheck, or build. This executes locally but does not modify source files by design.',
+  execute: ({ name }, context) => {
+    if (name !== 'test' && name !== 'typecheck' && name !== 'build') throw new Error('Unsupported verification check.')
+    const result = runCheck(name, workspace(context))
+    return { output: { name: result.name, passed: result.passed, output: result.output }, evidence: result.evidence }
+  },
+}
+
+export const defaultTools: AnyTool[] = [echo, calculate, timestamp, listFiles, readFile, gitStatus, gitDiff, gitLog, runVerification]
 export function getTool(name: string): AnyTool | undefined { return defaultTools.find(tool => tool.name === name) }

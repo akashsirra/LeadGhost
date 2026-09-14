@@ -3,16 +3,22 @@
 import Link from 'next/link'
 import { useState } from 'react'
 
-type Evidence = { id: string; kind: string; summary: string; source: string }
+type Evidence = { id?: string; kind: string; summary: string; source: string }
 type Run = { result: { status: 'PASS' | 'FAIL' | 'UNKNOWN'; checks: Array<{ name: string; passed: boolean; detail: string }>; evidence: Evidence[] }; plan: { actions: Array<{ id: string; tool: string; input: unknown; reason: string }> }; events: Array<{ type: string; actionId?: string; tool?: string; output?: unknown }> }
+type Proposal = { patch: { path: string; before: string; after: string }; approval: { id: string; summary: string; paths: string[] }; evidence: Evidence[] }
 
-const examples = ['list files in core', 'read file core/runtime.ts', 'git status', 'git diff', 'git log', 'calculate 7 * 6', 'what is 128 / 4 + 3', 'what time is it']
+const examples = ['audit this repository', 'list files in core', 'read file core/runtime.ts', 'git status', 'git diff', 'git log', 'calculate 7 * 6']
 
 export default function Console() {
-  const [goal, setGoal] = useState('list files in core')
+  const [goal, setGoal] = useState('audit this repository')
   const [run, setRun] = useState<Run | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [path, setPath] = useState('README.md')
+  const [replacement, setReplacement] = useState('')
+  const [proposal, setProposal] = useState<Proposal | null>(null)
+  const [engineeringStatus, setEngineeringStatus] = useState('')
+  const [engineeringBusy, setEngineeringBusy] = useState(false)
 
   async function execute() {
     setLoading(true); setError(''); setRun(null)
@@ -25,16 +31,44 @@ export default function Console() {
     finally { setLoading(false) }
   }
 
+  async function propose() {
+    setEngineeringBusy(true); setEngineeringStatus(''); setProposal(null)
+    try {
+      const response = await fetch('/api/engineering', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode: 'propose', path, after: replacement }) })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error ?? 'Proposal failed.')
+      setProposal(data)
+      setEngineeringStatus('Proposal ready. Nothing has been written.')
+    } catch (e) { setEngineeringStatus(e instanceof Error ? e.message : 'Proposal failed.') }
+    finally { setEngineeringBusy(false) }
+  }
+
+  async function approveAndApply() {
+    if (!proposal) return
+    setEngineeringBusy(true); setEngineeringStatus('Applying approved change and running verification…')
+    try {
+      const response = await fetch('/api/engineering', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode: 'apply', approved: true, patch: proposal.patch }) })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error ?? 'Apply failed.')
+      setEngineeringStatus(`${data.status}: change applied, then typecheck + tests + build were executed.`)
+    } catch (e) { setEngineeringStatus(e instanceof Error ? e.message : 'Apply failed.') }
+    finally { setEngineeringBusy(false) }
+  }
+
   const status = run?.result.status
   const statusClass = status === 'PASS' ? 'text-[#b7ff3c]' : status === 'FAIL' ? 'text-[#ff7777]' : 'text-[#e5d36b]'
 
   return <main className="min-h-screen bg-[#070708] text-[#f5f5f7]">
-    <header className="border-b border-[#202026]"><div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4"><Link href="/" className="flex items-center gap-3"><span className="grid h-8 w-8 place-items-center rounded-lg border border-[#303035] text-[#b7ff3c]">◆</span><b>AEGIS</b></Link><span className="mono text-[10px] tracking-widest text-[#666670]">RUNTIME v0.2 · READ ONLY</span></div></header>
+    <header className="border-b border-[#202026]"><div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4"><Link href="/" className="flex items-center gap-3"><span className="grid h-8 w-8 place-items-center rounded-lg border border-[#303035] text-[#b7ff3c]">◆</span><b>AEGIS</b></Link><span className="mono text-[10px] tracking-widest text-[#666670]">MISSION CONTROL · v1.0 PREVIEW</span></div></header>
     <div className="mx-auto max-w-6xl px-5 py-10 md:py-14">
-      <div className="mb-10"><p className="mono text-xs text-[#b7ff3c]">MISSION CONTROL</p><h1 className="mt-2 text-4xl font-semibold tracking-tight md:text-5xl">Give AEGIS a task.</h1><p className="mt-3 max-w-2xl text-[#85858f]">Plan → tool → observation → verification → evidence. Filesystem and Git inspection are read-only and bounded.</p></div>
-      <section className="glow rounded-2xl border border-[#2b3420] bg-[#0d1109] p-5 md:p-6"><label className="mono text-[10px] tracking-widest text-[#777780]">TASK GOAL</label><textarea value={goal} onChange={e=>setGoal(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey))execute()}} rows={3} className="mt-3 w-full resize-none rounded-xl border border-[#303037] bg-[#09090b] p-4 text-base outline-none focus:border-[#b7ff3c]/50" placeholder="What should AEGIS do?"/><div className="mt-3 flex flex-wrap gap-2">{examples.map(example=><button key={example} onClick={()=>setGoal(example)} className="rounded-full border border-[#303037] px-3 py-1.5 text-xs text-[#92929c] hover:border-[#b7ff3c]/40 hover:text-white">{example}</button>)}</div><div className="mt-5 flex items-center justify-between gap-3"><span className="text-xs text-[#666670]">Ctrl/⌘ + Enter to execute</span><button onClick={execute} disabled={loading||!goal.trim()} className="rounded-xl bg-[#b7ff3c] px-6 py-3 text-sm font-semibold text-black disabled:opacity-40">{loading?'Executing…':'Run task →'}</button></div></section>
+      <div className="mb-10"><p className="mono text-xs text-[#b7ff3c]">AUTONOMOUS ENGINEERING</p><h1 className="mt-2 text-4xl font-semibold tracking-tight md:text-5xl">Give AEGIS a mission.</h1><p className="mt-3 max-w-3xl text-[#85858f]">Inspect → propose → approve → change → test → build → verify. AEGIS never treats model text as proof.</p></div>
+
+      <section className="glow rounded-2xl border border-[#2b3420] bg-[#0d1109] p-5 md:p-6"><label className="mono text-[10px] tracking-widest text-[#777780]">MISSION GOAL</label><textarea value={goal} onChange={e=>setGoal(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey))execute()}} rows={3} className="mt-3 w-full resize-none rounded-xl border border-[#303037] bg-[#09090b] p-4 text-base outline-none focus:border-[#b7ff3c]/50" placeholder="What should AEGIS do?"/><div className="mt-3 flex flex-wrap gap-2">{examples.map(example=><button key={example} onClick={()=>setGoal(example)} className="rounded-full border border-[#303037] px-3 py-1.5 text-xs text-[#92929c] hover:border-[#b7ff3c]/40 hover:text-white">{example}</button>)}</div><div className="mt-5 flex items-center justify-between gap-3"><span className="text-xs text-[#666670]">Read-only missions are autonomous.</span><button onClick={execute} disabled={loading||!goal.trim()} className="rounded-xl bg-[#b7ff3c] px-6 py-3 text-sm font-semibold text-black disabled:opacity-40">{loading?'Executing…':'Run mission →'}</button></div></section>
+
+      <section className="mt-6 rounded-2xl border border-[#24242b] bg-[#0c0c0f] p-5 md:p-6"><div className="flex items-start justify-between gap-4"><div><p className="mono text-[10px] tracking-widest text-[#b7ff3c]">CONTROLLED CHANGE</p><h2 className="mt-2 text-xl font-semibold">Propose a file change</h2><p className="mt-1 text-sm text-[#777780]">Nothing is written during proposal. Applying requires explicit approval and automatically runs typecheck, tests and build.</p></div><span className="rounded-full border border-[#303037] px-3 py-1 text-[10px] text-[#777780]">APPROVAL GATE</span></div><div className="mt-5 grid gap-4 md:grid-cols-[220px_1fr]"><input value={path} onChange={e=>setPath(e.target.value)} className="rounded-xl border border-[#303037] bg-[#09090b] px-4 py-3 text-sm outline-none" placeholder="README.md"/><textarea value={replacement} onChange={e=>setReplacement(e.target.value)} rows={5} className="rounded-xl border border-[#303037] bg-[#09090b] p-4 font-mono text-xs outline-none" placeholder="Complete replacement file content…"/></div><div className="mt-4 flex flex-wrap gap-3"><button onClick={propose} disabled={engineeringBusy||!path.trim()||!replacement} className="rounded-xl border border-[#b7ff3c]/40 px-5 py-3 text-sm font-semibold text-[#b7ff3c] disabled:opacity-40">{engineeringBusy?'Working…':'Create proposal'}</button>{proposal&&<button onClick={approveAndApply} disabled={engineeringBusy} className="rounded-xl bg-[#b7ff3c] px-5 py-3 text-sm font-semibold text-black disabled:opacity-40">Approve + apply →</button>}</div>{engineeringStatus&&<p className="mt-4 text-sm text-[#9b9ba5]">{engineeringStatus}</p>}{proposal&&<div className="mt-5 rounded-xl border border-[#2b3420] bg-[#10140b] p-4"><p className="mono text-[10px] text-[#666670]">PROPOSAL</p><p className="mt-2 text-sm">{proposal.approval.summary}</p><p className="mt-2 mono text-[10px] text-[#777780]">{proposal.patch.path} · bounded replacement · stale-file protection enabled</p></div>}</section>
+
       {error && <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-300">{error}</div>}
-      {run && <section className="mt-8 grid gap-5 lg:grid-cols-[1fr_320px]"><div className="space-y-5"><div className="rounded-2xl border border-[#24242b] bg-[#0c0c0f] p-5"><div className="flex items-center justify-between"><div><p className="mono text-[10px] text-[#666670]">FINAL DECISION</p><p className={`mt-2 text-4xl font-semibold ${statusClass}`}>{status}</p></div><div className="text-right"><p className="mono text-[10px] text-[#666670]">EVIDENCE</p><p className="mt-2 text-2xl font-semibold">{run.result.evidence.length}</p></div></div></div><div className="rounded-2xl border border-[#24242b] bg-[#0c0c0f] p-5"><p className="mono text-[10px] text-[#666670]">EXECUTION TRACE</p><div className="mt-4 space-y-2">{run.events.map((event,i)=><div key={i} className="rounded-xl border border-[#202026] bg-[#09090b] p-4"><div className="flex items-center gap-3"><span className="mono text-[10px] text-[#b7ff3c]">{String(i+1).padStart(2,'0')}</span><b className="text-sm">{event.type.toUpperCase()}</b>{event.tool&&<span className="mono text-xs text-[#777780]">{event.tool}</span>}</div>{event.output!==undefined&&<pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap text-xs text-[#9b9ba5]">{JSON.stringify(event.output,null,2)}</pre>}</div>)}</div></div><div className="rounded-2xl border border-[#24242b] bg-[#0c0c0f] p-5"><p className="mono text-[10px] text-[#666670]">VERIFICATION</p><div className="mt-4 space-y-2">{run.result.checks.map(check=><div key={check.name} className="flex items-start justify-between gap-4 rounded-xl border border-[#202026] p-4"><div><b className="text-sm">{check.name}</b><p className="mt-1 text-xs text-[#777780]">{check.detail}</p></div><span className={check.passed?'text-[#b7ff3c]':'text-[#ff7777]'}>{check.passed?'PASS':'FAIL'}</span></div>)}</div></div></div><aside className="rounded-2xl border border-[#24242b] bg-[#0c0c0f] p-5 h-fit"><p className="mono text-[10px] text-[#666670]">EVIDENCE LEDGER</p><div className="mt-4 space-y-3">{run.result.evidence.map(item=><div key={item.id} className="border-l border-[#b7ff3c]/40 pl-3"><p className="text-xs font-medium">{item.summary}</p><p className="mt-1 mono text-[10px] text-[#666670]">{item.kind} · {item.source}</p></div>)}</div><div className="mt-6 rounded-xl border border-[#2b3420] bg-[#10140b] p-4 text-xs leading-5 text-[#8f8f99]">Tools and checks produce evidence. Model text alone cannot turn UNKNOWN into PASS.</div></aside></section>}
+      {run && <section className="mt-8 grid gap-5 lg:grid-cols-[1fr_320px]"><div className="space-y-5"><div className="rounded-2xl border border-[#24242b] bg-[#0c0c0f] p-5"><div className="flex items-center justify-between"><div><p className="mono text-[10px] text-[#666670]">FINAL DECISION</p><p className={`mt-2 text-4xl font-semibold ${statusClass}`}>{status}</p></div><div className="text-right"><p className="mono text-[10px] text-[#666670]">EVIDENCE</p><p className="mt-2 text-2xl font-semibold">{run.result.evidence.length}</p></div></div></div><div className="rounded-2xl border border-[#24242b] bg-[#0c0c0f] p-5"><p className="mono text-[10px] text-[#666670]">EXECUTION TRACE</p><div className="mt-4 space-y-2">{run.events.map((event,i)=><div key={i} className="rounded-xl border border-[#202026] bg-[#09090b] p-4"><div className="flex items-center gap-3"><span className="mono text-[10px] text-[#b7ff3c]">{String(i+1).padStart(2,'0')}</span><b className="text-sm">{event.type.toUpperCase()}</b>{event.tool&&<span className="mono text-xs text-[#777780]">{event.tool}</span>}</div>{event.output!==undefined&&<pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap text-xs text-[#9b9ba5]">{JSON.stringify(event.output,null,2)}</pre>}</div>)}</div></div><div className="rounded-2xl border border-[#24242b] bg-[#0c0c0f] p-5"><p className="mono text-[10px] text-[#666670]">VERIFICATION</p><div className="mt-4 space-y-2">{run.result.checks.map(check=><div key={check.name} className="flex items-start justify-between gap-4 rounded-xl border border-[#202026] p-4"><div><b className="text-sm">{check.name}</b><p className="mt-1 text-xs text-[#777780]">{check.detail}</p></div><span className={check.passed?'text-[#b7ff3c]':'text-[#ff7777]'}>{check.passed?'PASS':'FAIL'}</span></div>)}</div></div></div><aside className="rounded-2xl border border-[#24242b] bg-[#0c0c0f] p-5 h-fit"><p className="mono text-[10px] text-[#666670]">EVIDENCE LEDGER</p><div className="mt-4 space-y-3">{run.result.evidence.map(item=><div key={item.id ?? item.source} className="border-l border-[#b7ff3c]/40 pl-3"><p className="text-xs font-medium">{item.summary}</p><p className="mt-1 mono text-[10px] text-[#666670]">{item.kind} · {item.source}</p></div>)}</div><div className="mt-6 rounded-xl border border-[#2b3420] bg-[#10140b] p-4 text-xs leading-5 text-[#8f8f99]">Model output can propose work. Runtime permissions and deterministic verification decide what AEGIS is allowed to trust.</div></aside></section>}
     </div>
   </main>
 }

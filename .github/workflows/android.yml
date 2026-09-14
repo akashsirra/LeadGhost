@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - feat/brok-android
+      - feat/brok-astra-agent
 
 jobs:
   build-apk:

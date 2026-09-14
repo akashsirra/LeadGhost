@@ -2,59 +2,61 @@
 
 **Autonomous Engineering & Intelligence System**
 
-AEGIS is a verification-first agent-engineering system: agents propose work, bounded tools execute it, and deterministic verification decides what can be trusted.
+AEGIS is a verification-first engineering agent: bounded tools execute work, explicit permissions control authority, and deterministic verification decides what can be trusted.
 
-## Working now — v0.2
+## Current product — v1.0 preview
 
-The local runtime is live at `/app` and follows:
+The `/app` Mission Control console now covers the full safe engineering loop:
 
-`Goal → Plan → Tool → Observe → Verify → Evidence → Result`
+`Mission → Inspect → Evidence → Propose → Approval → Apply → Typecheck → Test → Build → Verdict`
 
-It currently includes a deterministic planner and three least-privilege tools:
+### Working capabilities
 
-- `echo` — read-only text preservation.
-- `calculate` — basic arithmetic with a small parser and no dynamic code execution.
-- `timestamp` — runtime clock observation.
-
-Every tool execution produces provenance-bearing evidence. Every verification check must also produce evidence. Missing evidence yields **UNKNOWN**, never **PASS**.
-
-The planner is deliberately deterministic at this stage. A future model can be connected behind the `Planner` interface without giving the model authority over the trust boundary.
-
-## Architecture
-
-- **Orchestrator / runtime** — turns a bounded task into a plan and executes only registered tools.
-- **Planner** — currently deterministic; later accepts a model behind a stable interface.
-- **Tools** — explicit, least-privilege capabilities.
-- **Verifier** — checks observable outputs and owns PASS/FAIL/UNKNOWN.
-- **Evidence ledger** — records tool and verification provenance.
-- **Evaluator** — regression tests runtime behavior.
-- **Policies** — hard boundaries for future filesystem, Git, browser, and cloud tools.
+- Read-only workspace inspection and Git status/diff/history.
+- Evidence ledger with provenance for tool observations and verification checks.
+- PASS / FAIL / UNKNOWN semantics; missing evidence cannot become PASS.
+- Explicit permission policy for workspace reads, tests, and future writes/releases.
+- Controlled file-change proposals with bounded size, sensitive-file blocking, stale-file protection, and an approval gate.
+- Post-change verification through allowlisted `typecheck`, `test`, and `build` commands.
+- Deterministic planner today; a model can be connected behind the planner boundary later.
 
 ## Trust boundary
 
-**Model proposes → runtime permits → tools observe → verifier decides.**
+**Model proposes → runtime permits → tools execute → verifier decides.**
 
-No model response can directly turn an unverified run into a success.
+A model never gets direct authority to declare success. Destructive or external side effects require explicit approval.
 
-## Trust ladder
+## Architecture
 
-1. One local agent.
-2. Deterministic verification.
-3. Reusable skills.
-4. Agent evaluations.
-5. Hard constraints and CI gates.
-6. Specialized agent team.
-7. Cloud execution.
-8. Autonomous PR/release workflows.
+- **Mission Control** — human-facing console for goals, traces, evidence, proposals, and approvals.
+- **Orchestrator / runtime** — turns bounded tasks into plans and executes registered tools.
+- **Planner** — deterministic today; model-compatible interface for future agent reasoning.
+- **Tools** — explicit least-privilege capabilities for workspace and Git inspection.
+- **Policy** — permission decisions and approval requirements.
+- **Engineering change layer** — creates and applies bounded patches only after approval.
+- **Verifier** — owns PASS / FAIL / UNKNOWN.
+- **Checks** — allowlisted reproducible test/typecheck/build commands.
+- **Evidence ledger** — records provenance for observations and decisions.
+- **CI** — typecheck, tests, and production build on every push/PR.
 
-We are currently at step 2 and building upward only when the previous step is measurable.
+## Product roadmap
 
-## Engineering rules
+1. **v0.2** — deterministic runtime + evidence.
+2. **v0.3** — controlled engineering changes + approval.
+3. **v0.4** — automated regression verification.
+4. **v0.5** — model-backed planning behind a strict tool boundary.
+5. **v1.0** — Mission Control product surface and repository workflows.
+6. **Future** — GitHub PRs, browser verification, reusable skills/evals, sandboxed cloud execution, and progressively autonomous release workflows.
+
+The roadmap is cumulative: every higher-trust capability must preserve the verification and permission boundaries below it.
+
+## Non-negotiable rules
 
 - Never treat model output as evidence.
-- Never fabricate test results, metrics, files, or tool output.
+- Never fabricate tests, metrics, files, or tool output.
 - Unknown is not pass.
 - Verification should be reproducible.
-- Agents receive least-privilege tools.
-- Destructive/external side effects require a future approval layer.
+- Least privilege by default.
+- Writes require explicit approval until stronger trust guarantees exist.
+- Secrets are never exposed through tools or evidence.
 - Recurring human review comments should become automated checks when possible.

@@ -23,39 +23,51 @@
   `;
   document.head.appendChild(style);
 
-  const native = window.BrokStorage;
-  if (!native) return;
   const fallback = window.localStorage;
   const bridgeStore = {
     getItem(key) {
       try {
-        const value = native.get(String(key));
-        return value !== null && value !== undefined && value !== '' ? String(value) : fallback.getItem(key);
-      } catch (_) {
-        return fallback.getItem(key);
-      }
+        const native = window.BrokStorage;
+        if (native) {
+          const value = native.get(String(key));
+          if (value !== null && value !== undefined && value !== '') return String(value);
+        }
+      } catch (_) {}
+      try { return fallback.getItem(String(key)) || ''; } catch (_) { return ''; }
     },
     setItem(key, value) {
-      const k = String(key);
-      const v = String(value);
-      native.set(k, v);
+      const k = String(key), v = String(value);
+      let nativeWorked = false;
+      try {
+        const native = window.BrokStorage;
+        if (native) { native.set(k, v); nativeWorked = true; }
+      } catch (_) {}
       try { fallback.setItem(k, v); } catch (_) {}
+      if (!nativeWorked) {
+        // Native bridge may attach shortly after page startup; the in-memory
+        // value is still available through this object until then.
+        bridgeStore._memory[k] = v;
+      }
     },
     removeItem(key) {
       const k = String(key);
-      try { native.remove(k); } catch (_) {}
+      try { const native = window.BrokStorage; if (native) native.remove(k); } catch (_) {}
       try { fallback.removeItem(k); } catch (_) {}
+      delete bridgeStore._memory[k];
     },
     clear() {
-      try { native.clear(); } catch (_) {}
+      try { const native = window.BrokStorage; if (native) native.clear(); } catch (_) {}
       try { fallback.clear(); } catch (_) {}
+      bridgeStore._memory = {};
     },
     key(index) { return fallback.key(index); },
-    get length() { return fallback.length; }
+    get length() { return fallback.length; },
+    _memory: {}
   };
-  try {
-    Object.defineProperty(window, 'localStorage', { configurable: true, value: bridgeStore });
-  } catch (_) {
-    window.brokNativeStorage = bridgeStore;
-  }
+  const originalGet = bridgeStore.getItem.bind(bridgeStore);
+  bridgeStore.getItem = function (key) {
+    const v = originalGet(key);
+    return v || bridgeStore._memory[String(key)] || '';
+  };
+  window.brokNativeStorage = bridgeStore;
 })();

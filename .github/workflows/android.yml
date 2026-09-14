@@ -43,6 +43,20 @@ jobs:
           p.write_text(s)
           PY
 
+      - name: Wire API key storage to native bridge
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('public/index.html')
+          s = p.read_text()
+          old = "function localRead(k){try{return localStorage.getItem(k)||''}catch(e){return ''}}function localWrite(k,v){try{localStorage.setItem(k,v)}catch(e){}}"
+          new = "function localRead(k){try{return (window.brokNativeStorage||window.localStorage).getItem(k)||''}catch(e){return ''}}function localWrite(k,v){try{(window.brokNativeStorage||window.localStorage).setItem(k,v)}catch(e){}}"
+          if old not in s:
+              raise SystemExit('Expected storage functions were not found; refusing to build a partial fix.')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+
       - name: Sync Capacitor
         run: npx cap sync android
 
